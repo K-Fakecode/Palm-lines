@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 손금 도사</title>
+    <!-- Tailwind CSS (디자인용) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Phosphor Icons (아이콘용) -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <style>
+        body { font-family: 'Pretendard', sans-serif; background-color: #f8fafc; background-image: radial-gradient(#e2e8f0 1px, transparent 1px); background-size: 20px 20px; }
+        .gradient-text { background: linear-gradient(to right, #2563eb, #ec4899); -webkit-background-clip: text; color: transparent; }
+        /* 로딩 애니메이션 */
+        .loader { border: 4px solid #f3f3f3; border-top: 4px solid #3b82f6; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body class="min-h-screen text-gray-800">
+
+    <div class="max-w-4xl mx-auto px-4 py-12">
+        <!-- 헤더 영역 -->
+        <div class="text-center mb-12">
+            <h1 class="text-4xl md:text-5xl font-extrabold mb-4 gradient-text tracking-tight">당신의 미래, 손 안에 있습니다</h1>
+            <p class="text-gray-600 text-lg mb-6">최첨단 AI 기술로 당신의 생명선, 두뇌선, 감정선을 분석합니다.</p>
+            
+            <!-- 사진 업로드 버튼 -->
+            <div id="upload-section" class="inline-block relative">
+                <input type="file" id="file-input" accept="image/*" class="hidden">
+                <label for="file-input" class="cursor-pointer bg-white text-gray-700 font-medium py-3 px-6 rounded-full shadow-md hover:shadow-lg transition-all border border-gray-200 flex items-center justify-center gap-2">
+                    <i class="ph-fill ph-camera text-xl"></i>
+                    밝은 곳에서 손바닥 전체가 잘 나오게 찍어주세요.
+                </label>
+            </div>
+        </div>
+
+        <!-- 로딩 화면 (기본은 숨김) -->
+        <div id="loading-section" class="hidden text-center py-12">
+            <div class="loader mb-4"></div>
+            <p class="text-lg font-bold text-blue-600 animate-pulse">AI가 열심히 손금을 들여다보고 있습니다냥...</p>
+            <p class="text-sm text-gray-500 mt-2">사진 용량에 따라 5~10초 정도 걸릴 수 있어요!</p>
+        </div>
+
+        <!-- 결과 화면 (기본은 숨김) -->
+        <div id="result-section" class="hidden">
+            <div class="text-center mb-8">
+                <h2 class="text-2xl font-bold flex items-center justify-center gap-2">
+                    <i class="ph-fill ph-magic-wand text-purple-500"></i> 분석 결과
+                </h2>
+            </div>
+
+            <!-- 3대 선 분석 카드 -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                <!-- 생명선 -->
+                <div class="bg-white rounded-2xl p-6 shadow-sm border-2 border-green-200 hover:shadow-md transition-all">
+                    <div class="flex items-center gap-2 mb-4">
+                        <div class="bg-green-100 p-2 rounded-full text-green-600"><i class="ph-fill ph-heartbeat text-xl"></i></div>
+                        <h3 class="text-xl font-bold text-gray-800">생명선 (건강/체력)</h3>
+                    </div>
+                    <p id="result-life" class="text-gray-600 leading-relaxed">결과를 불러오는 중입니다...</p>
+                </div>
+
+                <!-- 두뇌선 -->
+                <div class="bg-white rounded-2xl p-6 shadow-sm border-2 border-blue-200 hover:shadow-md transition-all">
+                    <div class="flex items-center gap-2 mb-4">
+                        <div class="bg-blue-100 p-2 rounded-full text-blue-600"><i class="ph-fill ph-brain text-xl"></i></div>
+                        <h3 class="text-xl font-bold text-gray-800">두뇌선 (지능/적성)</h3>
+                    </div>
+                    <p id="result-head" class="text-gray-600 leading-relaxed">결과를 불러오는 중입니다...</p>
+                </div>
+
+                <!-- 감정선 -->
+                <div class="bg-white rounded-2xl p-6 shadow-sm border-2 border-pink-200 hover:shadow-md transition-all">
+                    <div class="flex items-center gap-2 mb-4">
+                        <div class="bg-pink-100 p-2 rounded-full text-pink-600"><i class="ph-fill ph-smiley text-xl"></i></div>
+                        <h3 class="text-xl font-bold text-gray-800">감정선 (성격/연애)</h3>
+                    </div>
+                    <p id="result-heart" class="text-gray-600 leading-relaxed">결과를 불러오는 중입니다...</p>
+                </div>
+            </div>
+
+            <!-- 종합 풀이 -->
+            <div class="bg-white rounded-2xl p-8 shadow-md text-center border border-gray-100">
+                <h3 class="text-xl font-bold mb-4 flex items-center justify-center gap-2">
+                    <i class="ph-fill ph-star text-yellow-400"></i> 종합 사주 풀이 <i class="ph-fill ph-star text-yellow-400"></i>
+                </h3>
+                <p id="result-summary" class="text-gray-700 italic text-lg leading-relaxed">결과를 불러오는 중입니다...</p>
+            </div>
+
+            <!-- 다시하기 버튼 -->
+            <div class="text-center mt-10">
+                <button onclick="resetApp()" class="text-blue-600 font-medium hover:text-blue-800 flex items-center justify-center gap-1 mx-auto">
+                    <i class="ph ph-arrow-counter-clockwise"></i> 다시 분석하기
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const fileInput = document.getElementById('file-input');
+        const uploadSection = document.getElementById('upload-section');
+        const loadingSection = document.getElementById('loading-section');
+        const resultSection = document.getElementById('result-section');
+
+        // ★ [핵심 기능] 사진 용량을 줄여주는 마법의 함수!
+        function compressImage(file, maxWidth = 800, maxHeight = 800, quality = 0.7) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = (event) => {
+                    const img = new Image();
+                    img.src = event.target.result;
+                    img.onload = () => {
+                        let width = img.width;
+                        let height = img.height;
+
+                        // 비율에 맞춰서 가로세로 크기 줄이기
+                        if (width > height) {
+                            if (width > maxWidth) {
+                                height = Math.round((height * maxWidth) / width);
+                                width = maxWidth;
+                            }
+                        } else {
+                            if (height > maxHeight) {
+                                width = Math.round((width * maxHeight) / height);
+                                height = maxHeight;
+                            }
+                        }
+
+                        // 도화지(Canvas)에 줄어든 크기로 다시 그리기
+                        const canvas = document.createElement('canvas');
+                        canvas.width = width;
+                        canvas.height = height;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, width, height);
+
+                        // 용량이 확 줄어든 새로운 Base64 데이터 뽑아내기
+                        const compressedBase64 = canvas.toDataURL('image/jpeg', quality);
+                        resolve(compressedBase64);
+                    };
+                    img.onerror = (error) => reject(error);
+                };
+                reader.onerror = (error) => reject(error);
+            });
+        }
+
+        // 사진 올렸을 때 실행되는 부분
+        fileInput.addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            // 화면 전환 (로딩중 표시)
+            uploadSection.classList.add('hidden');
+            resultSection.classList.add('hidden');
+            loadingSection.classList.remove('hidden');
+
+            try {
+                // 1. 사진 용량 꽉꽉 눌러서 압축하기 (기다림)
+                const compressedBase64 = await compressImage(file);
+                
+                // base64 데이터만 깔끔하게 자르기 ('data:image/jpeg;base64,' 뒷부분)
+                const base64Data = compressedBase64.split(',')[1]; 
+
+                // 2. 버셀(Vercel) 주방으로 주문서(사진) 보내기
+                const response = await fetch('/api/analyze', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ image: base64Data })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`주방장이 기절했다냥! (에러코드: ${response.status})`);
+                }
+
+                // 3. 주방에서 요리(결과) 받아오기
+                const data = await response.json();
+                
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+
+                // 4. 화면에 결과 예쁘게 뿌려주기
+                showResult(data);
+
+            } catch (error) {
+                console.error('분석 에러:', error);
+                // 주방에 문제가 생기면 데모(가짜) 데이터라도 보여주기!
+                handleMockData();
+            }
+        });
+
+        // 결과 보여주는 함수
+        function showResult(data) {
+            loadingSection.classList.add('hidden');
+            resultSection.classList.remove('hidden');
+
+            document.getElementById('result-life').innerText = data.lifeLine || "생명선이 뚜렷하게 잘 보입니다. 타고난 에너지가 좋습니다.";
+            document.getElementById('result-head').innerText = data.headLine || "두뇌선이 매끄럽게 뻗어 있습니다. 직관력과 이해력이 뛰어납니다.";
+            document.getElementById('result-heart').innerText = data.heartLine || "감정선이 둥글게 올라가 있습니다. 타인에 대한 배려심이 깊습니다.";
+            document.getElementById('result-summary').innerText = `"${data.summary || "전반적으로 아주 좋은 황금비율의 손금입니다. 앞으로 다가올 기회를 잘 잡으세요!"}"`;
+        }
+
+        // 에러 났을 때 보여주는 데모(가짜) 데이터 함수
+        function handleMockData() {
+            const mockData = {
+                lifeLine: "생명선이 굵고 선명하게 뻗어 있어 타고난 체력이 훌륭합니다. 잔병치레 없이 활기찬 에너지를 발산하며, 어려운 환경에서도 꿋꿋하게 이겨내는 회복탄력성이 매우 뛰어난 상입니다.",
+                headLine: "두뇌선이 완만한 곡선을 그리며 깊게 파여 있어 창의력과 직관력이 남다릅니다. 틀에 박힌 일보다는 자신만의 아이디어를 실현할 수 있는 분야에서 크게 성공할 잠재력을 품고 있습니다.",
+                heartLine: "감정선 끝이 여러 갈래로 나뉘어 있어 감수성이 풍부하고 타인에 대한 공감 능력이 탁월합니다. 주변 사람들을 따뜻하게 챙겨 인기가 많으며, 섬세한 배려심으로 아름다운 연애를 할 운입니다.",
+                summary: "전반적으로 삼대선(생명선, 두뇌선, 감정선)의 균형이 아주 잘 잡혀 있는 '황금비율'의 손금입니다. 타고난 건강을 바탕으로 뛰어난 직관력을 발휘한다면 이루지 못할 일이 없습니다. 당신의 따뜻한 마음씨가 귀인을 불러오니, 앞으로 펼쳐질 빛나는 미래를 기대하셔도 좋습니다."
+            };
+            showResult(mockData);
+            
+            // 데모 데이터라는 걸 주인냥이 알 수 있게 살짝 팝업 띄우기
+            alert("앗! 버셀 서버랑 통신이 끊어져서 임시(데모) 결과를 보여준다냥! 콘솔(F12) 에러를 확인해보라냥!");
+        }
+
+        // 다시하기 버튼 누르면 처음으로 돌아가는 함수
+        function resetApp() {
+            fileInput.value = ''; // 들어있던 파일 지우기
+            resultSection.classList.add('hidden');
+            loadingSection.classList.add('hidden');
+            uploadSection.classList.remove('hidden');
+        }
+    </script>
+</body>
+</html>
