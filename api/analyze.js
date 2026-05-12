@@ -32,7 +32,7 @@ export default async function handler(req, res) {
     }`;
 
     // 4. 구글 Gemini AI(1.5 Flash 모델)에게 사진과 프롬프트 보내기
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
     
     console.log("🚀 구글 Gemini에게 손금 분석을 요청합니다냥...");
 
