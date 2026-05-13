@@ -1,94 +1,108 @@
+// Vercel 에러를 막기 위해 module.exports 방식 사용
 module.exports = async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: '허용되지 않은 요청입니다.' });
-  }
-
-  try {
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-      return res.status(500).json({ error: 'API 키가 없습니다.' });
+    // 오직 POST 방식의 요청만 허용합니다.
+    if (req.method !== 'POST') {
+        return res.status(405).json({ error: 'POST 요청만 가능합니다.' });
     }
 
     const { image } = req.body;
-    if (!image) {
-      return res.status(400).json({ error: '이미지가 없습니다.' });
+    
+    // Vercel Environment Variables(환경변수)에 저장된 API 키를 가져옵니다.
+    const apiKey = process.env.GEMINI_API_KEY; 
+
+    if (!apiKey) {
+        return res.status(500).json({ error: '서버에 API 키가 없습니다. Vercel 설정을 확인해주세요.' });
     }
 
-    const prompt = `당신은 냉철하고 정확한 세계 최고의 손금 분석가입니다. 
-    주어진 손바닥 사진을 보고 다음 JSON 형식에 맞춰서 분석 결과를 한국어로 작성해주세요.
-    좋은 말만 하지 말고, 긍정적인 부분(행운)과 부정적인 부분(불행 또는 주의할 점)을 모두 가감 없이 솔직하게 작성해주세요.
-    반드시 JSON 형식으로만 응답해야 합니다. 마크다운 기호(\`\`\`json)는 절대 포함하지 마세요.
-    {
-      "lifeLine": "생명선(건강, 체력) 분석 내용...",
-      "headLine": "두뇌선(지능, 적성) 분석 내용...",
-      "heartLine": "감정선(성격, 연애) 분석 내용...",
-      "luckyPoint": "이 손금이 가진 최고의 행운 포인트 (재물, 귀인 등)...",
-      "unluckyPoint": "이 손금에서 가장 조심해야 할 불행/주의 포인트 (사고, 건강, 배신 등)...",
-      "summary": "종합 사주 풀이 내용..."
-    }`;
+    if (!image) {
+        return res.status(400).json({ error: '이미지가 전달되지 않았습니다.' });
+    }
 
-    // ★ [핵심 기능] 구글 AI 모델 문을 순서대로 다 두드려보는 만능 키!
-    const modelsToTry = [
-      'gemini-1.5-flash-latest',
-      'gemini-1.5-flash',
-      'gemini-1.5-pro-latest',
-      'gemini-1.5-pro'
-    ];
+    try {
+        // ★ [안전장치] 구글 API가 특정 모델을 거절할 경우를 대비해 순서대로 시도
+        const modelsToTry = [
+            'gemini-2.5-flash',
+            'gemini-1.5-flash-latest',
+            'gemini-1.5-flash'
+        ];
 
-    let resultJson = null;
-    let lastError = "";
+        const prompt = `당신은 오랜 경험을 가진 전통 관상학 전문가입니다. 
+주어진 얼굴 사진을 보고 다음 3가지 주요 부위와 종합 풀이에 대한 관상 결과를 분석해주세요.
+사진의 얼굴에서 보이는 관상학적 특징을 가감 없이 객관적이고 냉철하게 분석해주세요. 
+좋은 점(길상)뿐만 아니라, 안 좋은 점(흉상), 주의해야 할 성격적 단점, 인간관계의 문제, 재물운의 취약점 등 부정적인 내용도 절대 피하지 말고 반드시 포함해서 상세히 적어주세요.
 
-    // 4개의 모델을 순서대로 테스트합니다.
-    for (const model of modelsToTry) {
-      console.log(`🚀 [${model}] 모델 문 두드리는 중...`);
-      try {
-        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-        const geminiResponse = await fetch(geminiUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{
-              parts: [
-                { text: prompt },
-                { inlineData: { mimeType: "image/jpeg", data: image } }
-              ]
-            }],
-            generationConfig: {
-              responseMimeType: "application/json"
+반드시 아래에 정의된 JSON 스키마 형식에 맞춰 정확한 JSON 데이터만 응답해야 합니다.`;
+
+        let resultJson = null;
+        let lastError = "";
+
+        // 모델별로 문을 두드려봅니다.
+        for (const model of modelsToTry) {
+            try {
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+                
+                const payload = {
+                    contents: [
+                        {
+                            role: "user",
+                            parts: [
+                                { text: prompt },
+                                { inlineData: { mimeType: "image/jpeg", data: image } }
+                            ]
+                        }
+                    ],
+                    generationConfig: {
+                        responseMimeType: "application/json",
+                        responseSchema: {
+                            type: "OBJECT",
+                            properties: {
+                                forehead: { type: "STRING", description: "이마/미간 관상 (초년운, 직업운 등)" },
+                                eyes: { type: "STRING", description: "눈/눈썹 관상 (성격, 재물운, 애정운 등)" },
+                                lowerFace: { type: "STRING", description: "코/입/턱/하관 관상 (말년운, 건강운 등)" },
+                                summary: { type: "STRING", description: "관상 종합 길흉화복 풀이 (조심할 점 포함)" }
+                            },
+                            required: ["forehead", "eyes", "lowerFace", "summary"]
+                        }
+                    }
+                };
+
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`[${model}] 거절됨: ${errorText}`);
+                }
+
+                const responseData = await response.json(); 
+                
+                // AI가 정상적으로 답변을 만들었는지 확인 후 파싱
+                if (responseData.candidates && responseData.candidates.length > 0) {
+                    const jsonText = responseData.candidates[0].content.parts[0].text;
+                    resultJson = JSON.parse(jsonText);
+                    break; // 성공했으니 더 이상 다른 모델을 시도할 필요 없이 종료!
+                } else {
+                    throw new Error(`[${model}] 응답 생성 실패`);
+                }
+            } catch (error) {
+                console.warn(`모델 시도 실패: ${error.message}`);
+                lastError = error.message;
             }
-          })
-        });
-
-        // 만약 이 모델이 404 에러로 거절하면 에러를 던지고 다음 모델로 넘어갑니다.
-        if (!geminiResponse.ok) {
-          const errText = await geminiResponse.text();
-          throw new Error(`[${model}] 거절됨: ${errText}`);
         }
 
-        // 문이 열리고 성공하면 결과를 파싱합니다.
-        const data = await geminiResponse.json();
-        let resultText = data.candidates[0].content.parts[0].text;
-        resultText = resultText.replace(/```json/g, '').replace(/```/g, '').trim();
-        resultJson = JSON.parse(resultText);
-        
-        console.log(`✅ [${model}] 모델로 분석 완벽 성공!`);
-        break; // 성공했으니 더 이상 다른 문을 두드릴 필요 없이 종료!
+        // 모든 모델이 거절했을 경우
+        if (!resultJson) {
+            throw new Error(`모든 AI 모델 접근 실패. (마지막 에러: ${lastError})`);
+        }
 
-      } catch (error) {
-        console.warn(error.message); // 거절된 기록을 로그에 남김
-        lastError = error.message;
-      }
+        return res.status(200).json(resultJson);
+
+    } catch (error) {
+        // 서버 내부의 치명적인 에러 처리
+        console.error('백엔드 치명적 에러:', error);
+        return res.status(500).json({ error: '서버 내부 오류가 발생했습니다.', details: error.message });
     }
-
-    // 4개 모델이 전부 거절했을 경우 최후의 에러 처리
-    if (!resultJson) {
-      throw new Error(`모든 AI 모델 접근 실패. 구글 API 키를 새로 발급받아야 합니다. (마지막 에러: ${lastError})`);
-    }
-
-    return res.status(200).json(resultJson);
-
-  } catch (error) {
-    console.error('🔥 최종 백엔드 에러:', error.message);
-    return res.status(500).json({ error: error.message });
-  }
 }
