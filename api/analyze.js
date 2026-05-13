@@ -1,4 +1,3 @@
-// Vercel 에러를 막기 위해 module.exports 방식 사용
 module.exports = async function handler(req, res) {
     // 오직 POST 방식의 요청만 허용합니다.
     if (req.method !== 'POST') {
@@ -6,12 +5,10 @@ module.exports = async function handler(req, res) {
     }
 
     const { image } = req.body;
-    
-    // Vercel Environment Variables(환경변수)에 저장된 API 키를 가져옵니다.
     const apiKey = process.env.GEMINI_API_KEY; 
 
     if (!apiKey) {
-        return res.status(500).json({ error: '서버에 API 키가 없습니다. Vercel 설정을 확인해주세요.' });
+        return res.status(500).json({ error: '서버에 API 키가 없습니다. Vercel 환경변수를 확인해주세요.' });
     }
 
     if (!image) {
@@ -26,10 +23,9 @@ module.exports = async function handler(req, res) {
             'gemini-1.5-flash'
         ];
 
-        const prompt = `당신은 오랜 경험을 가진 전통 관상학 전문가입니다. 
-주어진 얼굴 사진을 보고 다음 3가지 주요 부위와 종합 풀이에 대한 관상 결과를 분석해주세요.
-사진의 얼굴에서 보이는 관상학적 특징을 가감 없이 객관적이고 냉철하게 분석해주세요. 
-좋은 점(길상)뿐만 아니라, 안 좋은 점(흉상), 주의해야 할 성격적 단점, 인간관계의 문제, 재물운의 취약점 등 부정적인 내용도 절대 피하지 말고 반드시 포함해서 상세히 적어주세요.
+        const prompt = `당신은 냉철하고 정확한 세계 최고의 손금 분석가입니다. 
+주어진 손바닥 사진을 보고 3대 주요 선(생명선, 두뇌선, 감정선)과 종합 사주 풀이에 대한 결과를 분석해주세요.
+좋은 말만 하지 말고, 긍정적인 부분(행운)과 부정적인 부분(불행 또는 주의할 점)을 모두 가감 없이 솔직하게 작성해주세요.
 
 반드시 아래에 정의된 JSON 스키마 형식에 맞춰 정확한 JSON 데이터만 응답해야 합니다.`;
 
@@ -53,15 +49,18 @@ module.exports = async function handler(req, res) {
                     ],
                     generationConfig: {
                         responseMimeType: "application/json",
+                        // ★ [핵심] AI가 무조건 이 형태의 JSON으로만 대답하도록 강제합니다!
                         responseSchema: {
                             type: "OBJECT",
                             properties: {
-                                forehead: { type: "STRING", description: "이마/미간 관상 (초년운, 직업운 등)" },
-                                eyes: { type: "STRING", description: "눈/눈썹 관상 (성격, 재물운, 애정운 등)" },
-                                lowerFace: { type: "STRING", description: "코/입/턱/하관 관상 (말년운, 건강운 등)" },
-                                summary: { type: "STRING", description: "관상 종합 길흉화복 풀이 (조심할 점 포함)" }
+                                lifeLine: { type: "STRING", description: "생명선(건강, 체력) 분석 내용" },
+                                headLine: { type: "STRING", description: "두뇌선(지능, 적성) 분석 내용" },
+                                heartLine: { type: "STRING", description: "감정선(성격, 연애) 분석 내용" },
+                                luckyPoint: { type: "STRING", description: "이 손금이 가진 최고의 행운 포인트 (재물, 귀인 등)" },
+                                unluckyPoint: { type: "STRING", description: "이 손금에서 가장 조심해야 할 불행/주의 포인트 (사고, 건강, 배신 등)" },
+                                summary: { type: "STRING", description: "종합 사주 풀이 내용" }
                             },
-                            required: ["forehead", "eyes", "lowerFace", "summary"]
+                            required: ["lifeLine", "headLine", "heartLine", "luckyPoint", "unluckyPoint", "summary"]
                         }
                     }
                 };
@@ -81,7 +80,10 @@ module.exports = async function handler(req, res) {
                 
                 // AI가 정상적으로 답변을 만들었는지 확인 후 파싱
                 if (responseData.candidates && responseData.candidates.length > 0) {
-                    const jsonText = responseData.candidates[0].content.parts[0].text;
+                    let jsonText = responseData.candidates[0].content.parts[0].text;
+                    // 혹시 모를 마크다운 찌꺼기 제거 (안전빵)
+                    jsonText = jsonText.replace(/```json/g, '').replace(/
+```/g, '').trim();
                     resultJson = JSON.parse(jsonText);
                     break; // 성공했으니 더 이상 다른 모델을 시도할 필요 없이 종료!
                 } else {
@@ -95,13 +97,13 @@ module.exports = async function handler(req, res) {
 
         // 모든 모델이 거절했을 경우
         if (!resultJson) {
-            throw new Error(`모든 AI 모델 접근 실패. (마지막 에러: ${lastError})`);
+            throw new Error(`모든 AI 모델 접근 실패. 구글 API 키 권한 문제일 수 있습니다. (마지막 에러: ${lastError})`);
         }
 
+        // 완벽하게 파싱된 JSON 객체를 프론트엔드로 전달
         return res.status(200).json(resultJson);
 
     } catch (error) {
-        // 서버 내부의 치명적인 에러 처리
         console.error('백엔드 치명적 에러:', error);
         return res.status(500).json({ error: '서버 내부 오류가 발생했습니다.', details: error.message });
     }
