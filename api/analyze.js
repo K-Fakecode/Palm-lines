@@ -27,40 +27,68 @@ module.exports = async function handler(req, res) {
       "summary": "종합 사주 풀이 내용..."
     }`;
 
-    // 가장 안정적인 최신 공식 모델 이름입니다.
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
-    
-    const geminiResponse = await fetch(geminiUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{
-          parts: [
-            { text: prompt },
-            { inlineData: { mimeType: "image/jpeg", data: image } }
-          ]
-        }],
-        generationConfig: {
-          responseMimeType: "application/json"
-        }
-      })
-    });
+    // ★ [핵심 기능] 구글 AI 모델 문을 순서대로 다 두드려보는 만능 키!
+    const modelsToTry = [
+      'gemini-1.5-flash-latest',
+      'gemini-1.5-flash',
+      'gemini-1.5-pro-latest',
+      'gemini-1.5-pro'
+    ];
 
-    if (!geminiResponse.ok) {
-      const errorText = await geminiResponse.text();
-      console.error("API 에러:", errorText);
-      throw new Error(`구글 AI 에러: ${geminiResponse.status} - ${errorText}`);
+    let resultJson = null;
+    let lastError = "";
+
+    // 4개의 모델을 순서대로 테스트합니다.
+    for (const model of modelsToTry) {
+      console.log(`🚀 [${model}] 모델 문 두드리는 중...`);
+      try {
+        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+        const geminiResponse = await fetch(geminiUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{
+              parts: [
+                { text: prompt },
+                { inlineData: { mimeType: "image/jpeg", data: image } }
+              ]
+            }],
+            generationConfig: {
+              responseMimeType: "application/json"
+            }
+          })
+        });
+
+        // 만약 이 모델이 404 에러로 거절하면 에러를 던지고 다음 모델로 넘어갑니다.
+        if (!geminiResponse.ok) {
+          const errText = await geminiResponse.text();
+          throw new Error(`[${model}] 거절됨: ${errText}`);
+        }
+
+        // 문이 열리고 성공하면 결과를 파싱합니다.
+        const data = await geminiResponse.json();
+        let resultText = data.candidates[0].content.parts[0].text;
+        resultText = resultText.replace(/```json/g, '').replace(/```/g, '').trim();
+        resultJson = JSON.parse(resultText);
+        
+        console.log(`✅ [${model}] 모델로 분석 완벽 성공!`);
+        break; // 성공했으니 더 이상 다른 문을 두드릴 필요 없이 종료!
+
+      } catch (error) {
+        console.warn(error.message); // 거절된 기록을 로그에 남김
+        lastError = error.message;
+      }
     }
 
-    const data = await geminiResponse.json();
-    let resultText = data.candidates[0].content.parts[0].text;
-    resultText = resultText.replace(/```json/g, '').replace(/```/g, '').trim();
-    const resultJson = JSON.parse(resultText);
+    // 4개 모델이 전부 거절했을 경우 최후의 에러 처리
+    if (!resultJson) {
+      throw new Error(`모든 AI 모델 접근 실패. 구글 API 키를 새로 발급받아야 합니다. (마지막 에러: ${lastError})`);
+    }
 
     return res.status(200).json(resultJson);
 
   } catch (error) {
-    console.error('백엔드 에러:', error.message);
+    console.error('🔥 최종 백엔드 에러:', error.message);
     return res.status(500).json({ error: error.message });
   }
 }
