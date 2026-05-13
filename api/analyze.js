@@ -15,7 +15,6 @@ module.exports = async function handler(req, res) {
       return res.status(400).json({ error: '이미지가 전달되지 않았습니다.' });
     }
 
-    // AI에게 내리는 프롬프트 (행운/불행 포함)
     const prompt = `당신은 냉철하고 정확한 세계 최고의 손금 분석가입니다. 
     주어진 손바닥 사진을 보고 다음 JSON 형식에 맞춰서 분석 결과를 한국어로 작성해주세요.
     좋은 말만 하지 말고, 손금에서 보이는 긍정적인 부분(행운)과 부정적인 부분(불행 또는 주의할 점)을 모두 가감 없이 솔직하게 작성해주세요.
@@ -29,8 +28,8 @@ module.exports = async function handler(req, res) {
       "summary": "종합 사주 풀이 내용..."
     }`;
 
-    // 가장 안정적인 gemini-1.5-flash 모델 사용
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+    // ★ [핵심 수정] 구글이 확실하게 인식하는 풀네임(-latest)으로 변경
+    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`;
     
     const geminiResponse = await fetch(geminiUrl, {
       method: 'POST',
@@ -50,7 +49,7 @@ module.exports = async function handler(req, res) {
 
     if (!geminiResponse.ok) {
       const errorText = await geminiResponse.text();
-      console.error("API 에러:", errorText);
+      console.error("API 에러 상세:", errorText);
       throw new Error(`구글 AI 에러: ${geminiResponse.status} - ${errorText}`);
     }
 
